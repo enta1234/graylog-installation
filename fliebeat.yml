@@ -1,0 +1,9 @@
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /logs/info/*.log
+    - /logs/service/*.log
+
+output.logstash:
+  hosts: ["graylog:5044"]

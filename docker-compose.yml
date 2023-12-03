@@ -1,0 +1,68 @@
+version: '3'
+services:
+  # MongoDB: Database required by Graylog
+  mongo:
+    image: mongo:4.4
+    networks:
+      - graylog-net
+
+  # Elasticsearch: Database required by Graylog
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.15.1
+    environment:
+      - http.host=0.0.0.0
+      - transport.host=localhost
+      - network.host=0.0.0.0
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+    ports:
+      - "9200:9200"
+    command: >
+     elasticsearch
+     -Ecluster.name=docker-cluster
+     -Enode.name=graylog-elasticsearch
+     -Ebootstrap.memory_lock=true
+     -E "xpack.security.enabled=false"
+    networks:
+      - graylog-net
+
+  # Graylog
+  graylog:
+    image: graylog/graylog:4.2
+    environment:
+      - GRAYLOG_HTTP_EXTERNAL_URI=http://localhost:9000/
+      - GRAYLOG_ROOT_PASSWORD_SHA2=ac70e1ca2edc58b47a4fa976c062cd5cd5d654024ddf82db1434ca945d2d14a0
+      - GRAYLOG_PASSWORD_SECRET=vQPShyJQ2ruVu1X+FAe3nKZph9tqMJ4Hv6PFsznxcj0=
+      - GRAYLOG_ROOT_TIMEZONE=Asia/Bangkok
+    depends_on:
+      - mongo
+      - elasticsearch
+    ports:
+      - "9000:9000"
+      - "12201:12201/udp"
+      - "1514:1514"
+      - "5044:5044"
+    networks:
+      - graylog-net
+
+  # Filebeat
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:7.15.1
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml
+      - /app/logs/:/logs/
+    command: filebeat -e -strict.perms=false
+    depends_on:
+      - graylog
+    networks:
+      - graylog-net
+
+networks:
+  graylog-net:
+    driver: bridge
